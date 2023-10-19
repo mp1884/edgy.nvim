@@ -186,9 +186,19 @@ function M:layout()
     -- move first window to the edgebar position
     -- and make floating windows normal windows
     if not last or vim.api.nvim_win_get_config(w.win).relative ~= "" then
-      vim.api.nvim_win_call(w.win, function()
-        vim.cmd("wincmd " .. wincmds[self.pos])
+      -- fix for https://github.com/folke/edgy.nvim/issues/58
+      -- the problem is that wincmd can be called with the command line window opened, which causes
+      -- an E11 error
+      -- this may not be the best solution, but it works for me
+      local ok = vim.api.nvim_win_call(w.win, function()
+        return pcall(vim.cmd, "wincmd " .. wincmds[self.pos])
       end)
+      if not ok then
+        -- to prevent this function from being called multiple times when the command line window
+        -- is still opened
+        self.dirty = false
+        return
+      end
     end
     -- move other windows to the end of the edgebar
     if last then
